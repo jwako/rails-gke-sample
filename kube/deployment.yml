@@ -1,0 +1,60 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sample-app
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      containers:
+        - image: gcr.io/rails-gke-sample-project/rails-gke-sample
+          name: web
+          env:
+            - name: RAILS_DB_HOST
+              value: 127.0.0.1
+            - name: RAILS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-password
+                  key: username
+            - name: RAILS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-password
+                  key: password
+            - name: SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: rails
+                  key: secret-key-base
+            - name: RAILS_ENV
+              value: production
+            - name: RACK_ENV
+              value: production
+            - name: RAILS_SERVE_STATIC_FILES
+              value: 'true'
+          ports:
+            - containerPort: 3000
+              name: sample-app
+          command: ["bundle", "exec", "rails", "server", "-p", "3000", "-b", "0.0.0.0"]
+        - image: b.gcr.io/cloudsql-docker/gce-proxy:1.11
+          name: cloudsql-proxy
+          command: ["/cloud_sql_proxy",
+                    "-instances=rails-gke-sample-project:us-central1:rails-gke-sample-production=tcp:5432",
+                    "-credential_file=/secrets/cloudsql/credentials.json"]
+          volumeMounts:
+            - name: cloudsql-oauth-credentials
+              mountPath: /secrets/cloudsql
+              readOnly: true
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs
+      volumes:
+        - name: cloudsql-oauth-credentials
+          secret:
+            secretName: cloudsql-oauth-credentials
+        - name: ssl-certs
+          hostPath:
+            path: /etc/ssl/certs
