@@ -20,3 +20,5 @@ ADD yarn.lock $APP_ROOT
 RUN yarn install --frozen-lockfile
 
 ADD . $APP_ROOT
+
+RUN bundle exec rake assets:precompile
